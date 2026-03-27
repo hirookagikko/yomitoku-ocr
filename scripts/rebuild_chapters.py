@@ -31,8 +31,8 @@ class Chapter(NamedTuple):
 
 
 def extract_page_num(filename: str) -> int:
-    """ファイル名からページ番号を抽出 (例: xxx_p001.md -> 1)"""
-    match = re.search(r'_p(\d+)\.md$', filename)
+    """ファイル名からページ番号を抽出 (例: page_001.md -> 1, xxx_p001.md -> 1)"""
+    match = re.search(r'(?:page_|_p)(\d+)\.md$', filename)
     if match:
         return int(match.group(1))
     return 0
