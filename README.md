@@ -1,5 +1,7 @@
 # yomitoku-ocr
 
+**[日本語](README.ja.md)**
+
 Claude Code Skill for OCR-ing Japanese books using [YomiToku](https://github.com/kotaro-kinoshita/yomitoku).
 
 PDF → Markdown OCR → Table extraction → TOC analysis → Chapter splitting — all automated as a single pipeline.
