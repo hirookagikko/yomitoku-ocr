@@ -44,6 +44,32 @@ git clone https://github.com/hirookagikko/yomitoku-ocr.git
 - 「図版付きで2パスOCRして」
 - 「この本をテキストで検索できるようにしたい」
 
+### エージェント連携（推奨）
+
+パーミッション確認なしでパイプラインを一気通貫で実行するには、以下のエージェント定義を `~/.claude/agents/yomitoku-worker.md` に保存してください:
+
+```markdown
+---
+name: yomitoku-worker
+description: YomiToku OCRパイプラインを実行するエージェント。yomitoku-ocrスキルの手順に従い、PDF→OCR→テーブル抽出→章分割を自動連結する。
+tools: Read, Write, Bash, Glob, Grep, Skill, Edit
+permissionMode: bypassPermissions
+memory: user
+---
+
+yomitoku-ocr スキルを読み込み、パイプラインを実行するエージェント。
+
+## 実行手順
+
+1. スキルの SKILL.md を Read する
+2. agents/ocr-pipeline.md を Read する
+3. パイプラインの手順に従って実行する
+
+スキルのドキュメントが権威ある情報源。このエージェントは実行権限を提供するだけ。
+```
+
+プロンプトで `yomitoku-worker` と書けばエージェントとして起動します。
+
 ## パイプライン
 
 ```mermaid
