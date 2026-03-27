@@ -44,6 +44,41 @@ git clone https://github.com/hirookagikko/yomitoku-ocr.git
 - 「図版付きで2パスOCRして」
 - 「この本をテキストで検索できるようにしたい」
 
+## パイプライン
+
+```mermaid
+flowchart TD
+    PDF[/"PDF入力"/]
+    MODE{"モード判定"}
+    OCR_A["OCR 通常モード<br/>ocr_book.sh<br/>(並列バッチ, 最大5)"]
+    OCR_B["OCR figureモード<br/>ocr_book.sh --figure<br/>(順次実行)"]
+    OCR_C1["Pass 1: 通常OCR<br/>(並列バッチ)"]
+    OCR_C2["Pass 2: figure OCR<br/>(順次実行)"]
+    MERGE["figure出力を<br/>pages/に統合"]
+    SCAN{"テーブルスキャン<br/>scan_tables.py"}
+    EXTRACT["テーブル抽出<br/>yomitoku_extract"]
+    TOC["目次解析<br/>LLMベース"]
+    SPLIT["章分割<br/>rebuild_chapters.py"]
+    OUT_A[/"chapters/<br/>pages/"/]
+    OUT_C[/"chapters/<br/>chapters_figure/<br/>pages/"/]
+
+    PDF --> MODE
+    MODE -->|"デフォルト"| OCR_A
+    MODE -->|"--figure"| OCR_B
+    MODE -->|"2パス"| OCR_C1
+
+    OCR_A --> SCAN
+    OCR_B --> SCAN
+    OCR_C1 --> OCR_C2 --> MERGE --> SCAN
+
+    SCAN -->|"テーブルリッチ"| EXTRACT --> TOC
+    SCAN -->|"スキップ"| TOC
+
+    TOC --> SPLIT
+    SPLIT -->|"A/B"| OUT_A
+    SPLIT -->|"C"| OUT_C
+```
+
 ## 構成
 
 ```
