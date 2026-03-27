@@ -30,7 +30,7 @@ uv tool install 'yomitoku[extract]' --python 3.13
 
 ```bash
 cd ~/.claude/skills/
-git clone https://github.com/<your-username>/yomitoku-ocr.git
+git clone https://github.com/hirookagikko/yomitoku-ocr.git
 ```
 
 ## Usage
