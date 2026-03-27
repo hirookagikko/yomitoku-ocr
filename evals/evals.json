@@ -1,0 +1,23 @@
+{
+	"skill_name": "yomitoku-ocr",
+	"evals": [
+		{
+			"id": 1,
+			"prompt": "Downloads にある marketing-book.pdf を OCR して章分割までやって。テーブルも多い本だから抽出もお願い。",
+			"expected_output": "スキルがトリガーされ、agents/ocr-pipeline.md を読み込み、SKILL_DIR を解決してパイプライン手順（OCR → テーブル抽出 → 章分割）を正しく実行開始する",
+			"files": []
+		},
+		{
+			"id": 2,
+			"prompt": "この図鑑のPDF（~/Documents/illustrated-guide.pdf）を図版付きで2パスOCRして。通常テキストと図版情報の両方ほしい。figureモードで。",
+			"expected_output": "デュアルモード（モードC）を選択し、Pass 1（通常）→ Pass 2（figure）の2段階実行を計画する。--figure オプションを適切に使用する",
+			"files": []
+		},
+		{
+			"id": 3,
+			"prompt": "父が書いた論文のPDFがあるんだけど、テキストで検索できるようにしたい。~/Desktop/father-thesis.pdf です。",
+			"expected_output": "スキルがトリガーされ、通常モード（モードA）でOCRパイプラインを実行。PDFパスを正しく受け取り、ocr_book.sh の呼び出しにSKILL_DIRを使う",
+			"files": []
+		}
+	]
+}

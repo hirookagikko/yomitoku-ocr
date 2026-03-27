@@ -1,0 +1,7 @@
+# Eval workspace (development only)
+*-workspace/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
