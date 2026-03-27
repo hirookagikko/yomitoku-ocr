@@ -104,4 +104,6 @@ yomitoku --help
 
 ## ライセンス
 
-MIT
+本スキル（スクリプト、エージェント定義、ドキュメント）は MIT ライセンスです。
+
+ただし、本スキルが利用する [YomiToku](https://github.com/kotaro-kinoshita/yomitoku) 本体は **CC BY-NC-SA 4.0** ライセンスです。商用利用には別途ライセンスが必要です。詳細は YomiToku のリポジトリを確認してください。

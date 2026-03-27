@@ -104,4 +104,6 @@ If the above doesn't work, use `dangerouslyDisableSandbox: true` as a last resor
 
 ## License
 
-MIT
+This skill (scripts, agent definitions, documentation) is licensed under MIT.
+
+Note: [YomiToku](https://github.com/kotaro-kinoshita/yomitoku) itself is licensed under **CC BY-NC-SA 4.0**. Commercial use requires a separate license. See the YomiToku repository for details.
