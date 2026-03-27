@@ -142,7 +142,9 @@ yomitoku --help  # モデルダウンロードがトリガーされる
 
 ```bash
 export PYTORCH_ENABLE_MPS_FALLBACK=1
-export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.7  # 32GB環境
+# 注意: PYTORCH_MPS_HIGH_WATERMARK_RATIO は設定しないこと
+# PyTorch 2.5+ では内部のlow watermark計算が破綻し
+# "invalid low watermark ratio" エラーになる
 ```
 
 ## 出力構造
