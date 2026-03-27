@@ -1,22 +1,22 @@
 # yomitoku-ocr
 
-**[日本語](README.ja.md)**
+**[English](README.en.md)**
 
-Claude Code Skill for OCR-ing Japanese books using [YomiToku](https://github.com/kotaro-kinoshita/yomitoku).
+[YomiToku](https://github.com/kotaro-kinoshita/yomitoku) を使った日本語書籍OCRの Claude Code スキル。
 
-PDF → Markdown OCR → Table extraction → TOC analysis → Chapter splitting — all automated as a single pipeline.
+PDF → Markdown OCR → テーブル抽出 → 目次解析 → 章分割を一気通貫で自動実行します。
 
-## Features
+## 特徴
 
-- **3 modes**: Normal (text-only), Figure (with image extraction), Dual (two-pass for complex layouts)
-- **Parallel batch processing**: Split large PDFs into batches for concurrent OCR
-- **Auto table extraction**: Detect table-heavy documents and extract structured JSON
-- **LLM-based TOC analysis**: Parse table of contents and split into chapters
-- **Apple Silicon optimized**: MPS device support (~12s/page on M2 Pro)
+- **3モード対応**: 通常（テキストのみ）、Figure（図版抽出付き）、デュアル（2パス処理）
+- **並列バッチ処理**: 大規模PDFを分割して同時OCR（最大5並列）
+- **テーブル自動抽出**: テーブルリッチな文書を検出し、構造化JSONとして抽出
+- **LLMベース目次解析**: 目次を解析して章ごとに自動分割
+- **Apple Silicon最適化**: MPS対応（M2 Proで約12秒/ページ）
 
-## Prerequisites
+## 前提条件
 
-- macOS with Apple Silicon (M1/M2/M3/M4) or Linux with NVIDIA GPU
+- macOS Apple Silicon (M1/M2/M3/M4) または Linux NVIDIA GPU
 - Python 3.10-3.13
 - Claude Code CLI
 
@@ -24,69 +24,69 @@ PDF → Markdown OCR → Table extraction → TOC analysis → Chapter splitting
 brew install uv poppler
 uv tool install yomitoku --python 3.13
 
-# For table extraction
+# テーブル抽出も使う場合
 uv tool install 'yomitoku[extract]' --python 3.13
 ```
 
-## Installation
+## インストール
 
 ```bash
 cd ~/.claude/skills/
 git clone https://github.com/hirookagikko/yomitoku-ocr.git
 ```
 
-## Usage
+## 使い方
 
-Once installed, Claude Code will automatically use this skill when you ask it to OCR a book or PDF.
+インストール後、Claude Code に PDF の OCR を依頼するだけでスキルが自動発火します。
 
-Example prompts:
-- "This PDF book, OCR it and split into chapters"
-- "Digitize this book with figure extraction"
-- "OCR this PDF to Markdown"
+プロンプト例:
+- 「この PDF を OCR して章分割までやって」
+- 「図版付きで2パスOCRして」
+- 「この本をテキストで検索できるようにしたい」
 
-## Structure
+## 構成
 
 ```
 yomitoku-ocr/
-├── SKILL.md              # Skill entry point
-├── agents/               # Pipeline step definitions
-│   ├── ocr-pipeline.md   # Orchestrator
-│   ├── ocr-book.md       # OCR execution
-│   ├── ocr-toc.md        # TOC analysis + chapter split
-│   └── ocr-extract.md    # Table extraction
-├── scripts/              # Automation scripts
-│   ├── ocr_book.sh       # OCR driver
+├── SKILL.md              # スキルのエントリポイント
+├── agents/               # パイプラインの各ステップ定義
+│   ├── ocr-pipeline.md   # オーケストレーター
+│   ├── ocr-book.md       # OCR実行
+│   ├── ocr-toc.md        # 目次解析・章分割
+│   └── ocr-extract.md    # テーブル抽出
+├── scripts/              # 自動化スクリプト
+│   ├── ocr_book.sh       # OCRドライバー
 │   ├── rebuild_chapters.py
 │   ├── scan_tables.py
 │   └── ...
-└── references/           # Detailed documentation
+└── references/           # 詳細ドキュメント
     ├── API_REFERENCE.md
     ├── CLI_REFERENCE.md
     └── ...
 ```
 
-## Output
+## 出力
 
 ```
-ocr_output/{book_name}/
-├── README.md          # TOC with links
-├── chapters/          # Chapter-level Markdown
-├── pages/             # Page-level OCR output
-├── _extractions/      # Structured table data (if applicable)
+ocr_output/{書籍名}/
+├── README.md          # 目次リンク付きメタ情報
+├── chapters/          # 章ごとのMarkdown
+├── pages/             # ページごとのOCR出力
+├── _extractions/      # テーブル抽出結果（該当時のみ）
 └── chapter_override.json
 ```
 
-## Sandbox Setup
+## サンドボックス設定
 
-YomiToku downloads models (~630MB) from HuggingFace Hub on first run and sends a HEAD request on each startup.
+YomiToku は初回起動時に HuggingFace Hub からモデル（約630MB）をダウンロードします。
 
-### Recommended: Pre-cache models + allowedHosts
+### 推奨: モデル事前キャッシュ + allowedHosts
 
 ```bash
-# 1. Pre-cache models (run once, outside Claude Code)
+# 1. モデルを事前ダウンロード（Claude Code 外で1回実行）
 yomitoku --help
 
-# 2. Add HuggingFace to sandbox allowedHosts in your settings
+# 2. サンドボックスの allowedHosts に HuggingFace を追加
 # ~/.claude/settings.local.json:
 ```
 
@@ -98,10 +98,10 @@ yomitoku --help
 }
 ```
 
-### Fallback
+### フォールバック
 
-If the above doesn't work, use `dangerouslyDisableSandbox: true` as a last resort. The `/tmp` issue is already handled via `$TMPDIR` in the scripts.
+上記で解決しない場合のみ `dangerouslyDisableSandbox: true` を使用してください（最終手段）。`/tmp` の問題はスクリプト内の `$TMPDIR` で自動回避済みです。
 
-## License
+## ライセンス
 
 MIT
