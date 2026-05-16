@@ -14,17 +14,21 @@ yomitoku <path_data> [OPTIONS]
 
 | オプション | 説明 | 例 |
 |------------|------|-----|
-| `-f, --format` | 出力形式: `json`, `csv`, `html`, `md`, `pdf` | `-f md` |
-| `-o, --outdir` | 出力ディレクトリ（存在しない場合は作成） | `-o results` |
+| `-f, --format` | 出力形式: `json`, `csv`, `html`, `md`, `pdf` (searchable) | `-f md` |
+| `-o, --outdir` | 出力ディレクトリ(存在しない場合は作成) | `-o results` |
 | `--encoding` | エンコーディング: `utf-8`, `utf-8-sig`, `shift-jis`, `euc-jp`, `cp932` | `--encoding utf-8` |
 | `--combine` | 複数ページPDFの結果を1ファイルにまとめる | `--combine` |
+| `--pdf_quality` | Searchable-PDF の画質プリセット `high`/`middle`/`low` (v0.12.1+) | `--pdf_quality middle` |
+| `--font_path` | Searchable-PDF 用フォント (.ttf) | `--font_path /Library/Fonts/Hiragino.ttc` |
 
 ### デバイス・モデル
 
 | オプション | 説明 | 例 |
 |------------|------|-----|
 | `-d, --device` | デバイス選択: `cuda`, `cpu`, `mps` | `-d mps` |
-| `-l, --lite` | 軽量モデル使用（CPU推論高速化、精度やや低下） | `--lite` |
+| `-l, --lite` | 軽量モデル使用(CPU推論高速化、精度やや低下) | `--lite` |
+| `--tr_name` | 認識モデル名指定 (デフォルト: `parseq-large-v4_1`, v0.13.0 強化版) | `--tr_name parseq-large-v4_1` |
+| `--td_name` | 検出モデル名指定 (デフォルト: `dbnetv2_1`, v0.13.0 強化版) | `--td_name dbnetv2_1` |
 
 ### 可視化
 
@@ -45,17 +49,22 @@ yomitoku <path_data> [OPTIONS]
 
 | オプション | 説明 | 例 |
 |------------|------|-----|
-| `--ignore_line_break` | 段落テキストを連結（画像内の改行を無視） | `--ignore_line_break` |
+| `--ignore_line_break` | 段落テキストを連結(画像内の改行を無視) | `--ignore_line_break` |
 | `--ignore_meta` | ヘッダー・フッターを出力から除外 | `--ignore_meta` |
+| `--ignore_ruby` | ふりがな(ルビ)テキストを出力から除外 (v0.12.0+) | `--ignore_ruby` |
+| `--ruby_threshold` | ルビ判定の bimodality 閾値(実装デフォルト **2.0**。高いほど valley split に強い bimodality を要求 = 控えめにルビ除去) | `--ruby_threshold 2.5` |
 | `--reading_order` | 読み順指定: `auto`, `left2right`, `top2bottom`, `right2left` | `--reading_order auto` |
+| `--enable-rec-orientation-fallback` | 認識時の回転テキストフォールバックを有効化 (v0.12.1 で既定 off) | `--enable-rec-orientation-fallback` |
+| `--rec-orientation-fallback-thresh` | フォールバック信頼度閾値 (デフォルト 0.75) | `--rec-orientation-fallback-thresh 0.7` |
 
 ### PDF処理
 
 | オプション | 説明 | 例 |
 |------------|------|-----|
-| `--dpi` | PDF読み込み時のDPI（デフォルト: 200） | `--dpi 300` |
-| `--pages` | 処理するページ指定（1始まり） | `--pages 1,2,5-10` |
-| `--font_path` | PDF出力用フォントファイル(.ttf) | `--font_path /path/to/font.ttf` |
+| `--dpi` | PDF読み込み時のDPI(デフォルト: 200) | `--dpi 300` |
+| `--pages` | 処理するページ指定(1始まり) | `--pages 1,2,5-10` |
+
+> README には `--ruby_threshold` のデフォルトが 0.5 と書かれているが、`yomitoku --help` の実装側ヘルプは **2.0** を出力する。スキルとしては実装側 (2.0) を採用する。
 
 ### 設定ファイル
 
@@ -151,9 +160,31 @@ yomitoku ./document.pdf -f md -o results -v -d mps
 
 ---
 
-## yomitoku_extract（ルールベース抽出）
+## ルビ除去のユースケース
 
-v0.11.0で追加。YAMLスキーマ定義に基づき、LLMなしで構造化データを抽出する。
+```bash
+# 辞書スキャン書籍を高 DPI + ルビ除去で OCR (推奨)
+yomitoku ./dictionary.pdf -f md -o out --dpi 300 \
+  --ignore_ruby --ruby_threshold 2.0 -d mps
+
+# ルビが残りすぎる場合は閾値を下げる
+yomitoku ./book.pdf -f md -o out --ignore_ruby --ruby_threshold 1.5 -d mps
+
+# 本文が誤削除される場合は閾値を上げる(より厳しく bimodality を要求)
+yomitoku ./book.pdf -f md -o out --ignore_ruby --ruby_threshold 3.0 -d mps
+```
+
+## モデル一覧 (v0.13.0)
+
+- 認識モデル: `parseq-large-v4_1` (v0.13.0 で精度向上)
+- 検出モデル: `dbnetv2_1` (v0.13.0 で精度向上)
+- 通常は `--tr_name` / `--td_name` を明示する必要なし。差し替えたいときのみ指定。
+
+---
+
+## yomitoku_extract(ルールベース抽出)
+
+v0.11.0 で導入、v0.12.1 で Key 複数値マージオプション追加。YAMLスキーマ定義に基づき、LLMなしで構造化データを抽出する。
 
 ### 基本構文
 

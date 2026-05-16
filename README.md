@@ -8,24 +8,36 @@ PDF → Markdown OCR → テーブル抽出 → 目次解析 → 章分割を一
 
 ## 特徴
 
-- **3モード対応**: 通常（テキストのみ）、Figure（図版抽出付き）、デュアル（2パス処理）
-- **並列バッチ処理**: 大規模PDFを分割して同時OCR（最大5並列）
+- **4モード対応**: 通常 / Figure(図版抽出) / デュアル(2パス処理) / 辞書(`--ignore_ruby` + 残ルビ調整)
+- **並列バッチ処理**: 大規模PDFを分割して同時OCR(最大5並列)。`load_pdf` 遅延レンダリング化以降は1プロセス全通しも現実的
 - **テーブル自動抽出**: テーブルリッチな文書を検出し、構造化JSONとして抽出
 - **LLMベース目次解析**: 目次を解析して章ごとに自動分割
-- **Apple Silicon最適化**: MPS対応（M2 Proで約12秒/ページ）
+- **YomiToku v0.13.0 ベース**: 検出/手書き認識モデルの強化、`--ignore_ruby`、`--dpi`、`--pages` 等のネイティブ機能に対応
 
 ## 前提条件
 
 - macOS Apple Silicon (M1/M2/M3/M4) または Linux NVIDIA GPU
-- Python 3.10-3.13
+- Python 3.10-3.13、PyTorch 2.6+
+- YomiToku **v0.13.0** 以降
+- macOS 14.0 以降 (MPS 使用時)。macOS 26 (Tahoe) は PyTorch 2.12 時点で MPS が `available=False` になるため CPU 推論 (`--lite -d cpu`) にフォールバックする
 - Claude Code CLI
 
 ```bash
 brew install uv poppler
-uv tool install yomitoku --python 3.13
 
-# テーブル抽出も使う場合
-uv tool install 'yomitoku[extract]' --python 3.13
+# SOCKS プロキシ環境 (Cloudflare WARP, Mullvad 等) では httpx[socks] が必須
+uv tool install 'yomitoku[extract]' --with 'httpx[socks]' --python 3.13
+
+# 既に古い yomitoku が入っている場合
+uv tool install 'yomitoku[extract]' --with 'httpx[socks]' --reinstall --python 3.13
+# あるいは
+uv tool upgrade yomitoku
+```
+
+初回はモデル ~ 630MB をダウンロードするため、サンドボックス外で 1 回プリフェッチしておくと安心です:
+
+```bash
+download_model
 ```
 
 ## インストール
@@ -42,6 +54,7 @@ git clone https://github.com/hirookagikko/yomitoku-ocr.git
 プロンプト例:
 - 「この PDF を OCR して章分割までやって」
 - 「図版付きで2パスOCRして」
+- 「この辞書を OCR して、ルビは消して」(辞書モード = `--ignore_ruby` + 残ルビ調整)
 - 「この本をテキストで検索できるようにしたい」
 
 ### エージェント連携（推奨）
@@ -144,8 +157,8 @@ YomiToku は初回起動時に HuggingFace Hub からモデル（約630MB）を�
 ### 推奨: モデル事前キャッシュ + allowedHosts
 
 ```bash
-# 1. モデルを事前ダウンロード（Claude Code 外で1回実行）
-yomitoku --help
+# 1. モデルを事前ダウンロード (v0.12.0+ では download_model コマンドが推奨)
+download_model
 
 # 2. サンドボックスの allowedHosts に HuggingFace を追加
 # ~/.claude/settings.local.json:

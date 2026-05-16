@@ -12,7 +12,14 @@ YomiToku OCRを使用してPDFをOCR処理し、pages/ にMarkdownを出力す�
 - `--dpi <N>` : PDF読み込みDPI（デフォルト200、高精度には300）
 - `--reading_order <mode>` : 読み順（auto/right2left/left2right/top2bottom）
 - `--pages <spec>` : 処理するページ指定（例: 1-40, 41-80）。並列バッチ実行時に使用
+- `--ignore_ruby` : ふりがな（ルビ）テキストを出力から除外。辞書モード必須 (v0.12.0+)
+- `--ruby_threshold <N>` : ルビ判定の bimodality 閾値（実装デフォルト 2.0、高いほど valley split を使うために強い bimodality を要求 (v0.12.0+)
 - `-v` : 可視化画像を出力（レイアウト検出の診断用）
+
+**v0.13.0 で追加された yomitoku ネイティブオプション**(必要時のみ ocr_book.sh 経由でなく直接 yomitoku を呼ぶ):
+- `--tr_name parseq-large-v4_1` / `--td_name dbnetv2_1` : 認識/検出モデル名を明示指定。既定の強化モデルを差し替えたい時のみ使用
+- `--enable-rec-orientation-fallback` / `--rec-orientation-fallback-thresh 0.75` : 認識時の回転テキストフォールバック (v0.12.1 で既定値が `off` に変更されたため、必要なら明示有効化)
+- `--pdf_quality {high,middle,low}` : Searchable-PDF 出力時の画質プリセット
 
 ## パラメータ
 
@@ -60,6 +67,9 @@ SKILL_DIR/scripts/ocr_book.sh "{pdf_path}" "{output_dir}" --figure --figure_lett
 
 # 高精度モード
 SKILL_DIR/scripts/ocr_book.sh "{pdf_path}" "{output_dir}" --dpi 300 --reading_order right2left
+
+# 辞書モード(ルビ削除を含む)
+SKILL_DIR/scripts/ocr_book.sh "{pdf_path}" "{output_dir}" --dpi 300 --ignore_ruby --ruby_threshold 2.0
 ```
 
 ### 並列バッチ処理（1つのPDFを分割）

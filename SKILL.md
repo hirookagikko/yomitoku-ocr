@@ -38,8 +38,9 @@ SKILL_DIR="/path/to/yomitoku-ocr"  # このファイルの場所
 | 項目 | 要件 |
 |------|------|
 | Python | 3.10-3.13（3.14未対応） |
-| PyTorch | 2.5以降 |
-| YomiToku | v0.11.0 |
+| PyTorch | 2.6以降（pyproject.tomlで `torch>=2.6.0, torchvision>=0.21.0`） |
+| YomiToku | v0.13.0以降 |
+| macOS | 14.0以降（MPS推論時）。macOS 26 (Tahoe) では PyTorch 2.12 時点で MPS 不可。[TROUBLESHOOTING](references/TROUBLESHOOTING.md#macos-26-tahoe-で-mps-が-available-false-になる) を参照 |
 | poppler | `brew install poppler` |
 | RAM | 16GB以上（64GB推奨） |
 | VRAM | 8GB以上推奨（GPUモード） |
@@ -48,11 +49,31 @@ SKILL_DIR="/path/to/yomitoku-ocr"  # このファイルの場所
 
 ```bash
 brew install uv poppler
-uv tool install yomitoku --python 3.13
 
-# テーブル抽出も使う場合
-uv tool install 'yomitoku[extract]' --python 3.13
+# SOCKS プロキシを経由する環境では httpx[socks] を同梱しないと起動できない
+uv tool install 'yomitoku[extract]' --with 'httpx[socks]' --python 3.13
+
+# 既存インストールを最新版に上げる(socks 同梱を保つ)
+uv tool install 'yomitoku[extract]' --with 'httpx[socks]' --reinstall --python 3.13
+# あるいは
+uv tool upgrade yomitoku
 ```
+
+> **SOCKS proxy について**: `ALL_PROXY=socks5://...` や Cloudflare WARP, Mullvad 等が有効な環境では、yomitoku が HuggingFace Hub に HEAD リクエストを送る段階で `ImportError: Using SOCKS proxy, but the 'socksio' package is not installed.` を踏む。上記の `--with 'httpx[socks]'` でこれを回避する。
+
+### モデルキャッシュ
+
+v0.12.0 以降は `download_model` で明示的にプリフェッチできる。**初回は sandbox 外で 1 回実行することを推奨**(sandbox の filesystem 制限で `~/.cache/huggingface/hub/` への書き込みが拒否されるため):
+
+```bash
+# ターミナルで直接、または Claude Code 内で `!` プレフィックスで sandbox を抜けて実行
+download_model
+
+# 確認: モデルキャッシュが取得されたか
+ls ~/.cache/huggingface/hub/ | grep -i yomitoku
+```
+
+未実行でも初回 OCR 時に自動ダウンロードを試みるが、sandbox 制限下では `PermissionError: Operation not permitted: ~/.cache/huggingface/hub/...` で失敗する。
 
 ### 依存関係チェック
 
@@ -62,13 +83,16 @@ python3 SKILL_DIR/scripts/check_dependencies.py
 
 ## パイプライン概要
 
-3つのモードがある:
+4つのモードがある:
 
 | モード | いつ使う | 処理内容 |
 |--------|---------|---------|
 | A. 通常 | デフォルト | OCR → テーブル抽出 → 章分割 |
-| B. figure | 図版が必要な本 | OCR(--figure) → テーブル抽出 → 章分割 |
+| B. figure | 図版が必要な本 | OCR(`--figure`) → テーブル抽出 → 章分割 |
 | C. デュアル | テキスト+図版両方必要 | 通常OCR + figureOCR → テーブル抽出 → 章分割(2種) |
+| D. 辞書 | 辞書・事典類 | OCR(`--dpi 300 --ignore_ruby --ruby_threshold 2.0`) → 残ルビ最終調整 → エラー検出 → 章分割 |
+
+辞書モードは v0.12.0 で追加された `--ignore_ruby` を主、`clean_ruby_text.py` の Stage 1 (既知パターン置換) を補助に降格させた構成。詳細は [agents/ocr-dictionary.md](agents/ocr-dictionary.md)。
 
 ## 使い方
 
@@ -86,6 +110,7 @@ python3 SKILL_DIR/scripts/check_dependencies.py
 | OCR実行 | [ocr-book](agents/ocr-book.md) | PDF→ページ単位Markdown変換 |
 | テーブル抽出 | [ocr-extract](agents/ocr-extract.md) | テーブルリッチ文書の構造化データ抽出 |
 | 目次解析+章分割 | [ocr-toc](agents/ocr-toc.md) | LLMベース目次解析と章分割 |
+| 辞書後処理 | [ocr-dictionary](agents/ocr-dictionary.md) | ルビ崩壊修正＋JMDictエラー検出 |
 
 ## サンドボックスとセットアップ
 
@@ -97,13 +122,16 @@ YomiToku は初回起動時に HuggingFace Hub からモデル（約630MB）を�
 **パイプライン実行前にモデルキャッシュを準備する。** ユーザーに以下を実行してもらう:
 
 ```bash
-# ターミナルで直接実行（Claude Code外）
-yomitoku --help  # モデルダウンロードがトリガーされる
+# v0.12.0 以降推奨: 明示的にプリフェッチ
+download_model
+
+# 旧来の方法: yomitoku --help でもダウンロードがトリガーされる
+yomitoku --help
 ```
 
 または Claude Code 内で `!` プレフィックスを使う:
 ```
-! yomitoku --help
+! download_model
 ```
 
 ### サンドボックス内での動作
@@ -134,18 +162,23 @@ yomitoku --help  # モデルダウンロードがトリガーされる
 
 ## メモリ制約
 
-- 1プロセスあたり約5-7GB（64GBマシン）
-- 並列上限: 通常モード最大5、figureモード最大1
+v0.12.1 で `load_pdf` が遅延レンダリング化されてから、PDFを丸ごとメモリに載せる経路のOOMは消えた。残るのは **OCR推論時の GPU/MPS メモリ**:
+
+- 1プロセスあたり OCR 推論で約 5-7GB（M2 Pro 32GB / M4 Pro 64GB 共通の実測値）
+- 並列上限: 通常モード最大5、figureモード最大1(検出器が大きく単体でVRAMを食う)
+- 並列はあくまで「OCR推論のスループット最大化」目的。1プロセス全通しと比較した実測値は [references/BATCH.md](references/BATCH.md) を参照
 - ユーザー指示なしにオプションを追加しないこと
 
 ## Apple Silicon 環境変数
 
+詳しくは [references/APPLE_SILICON.md](references/APPLE_SILICON.md) を参照。スキル側の既定方針は以下:
+
 ```bash
 export PYTORCH_ENABLE_MPS_FALLBACK=1
-# 注意: PYTORCH_MPS_HIGH_WATERMARK_RATIO は設定しないこと
-# PyTorch 2.5+ では内部のlow watermark計算が破綻し
-# "invalid low watermark ratio" エラーになる
 ```
+
+- `PYTORCH_MPS_HIGH_WATERMARK_RATIO` / `PYTORCH_MPS_LOW_WATERMARK_RATIO` は**両方ペアで明示する場合のみ**設定する(HIGH のみ単独設定で `invalid low watermark ratio` を踏んだ報告あり)
+- macOS 26 (Tahoe) は PyTorch 2.12 時点で MPS が `available=False`。CPU 推論 (`--lite -d cpu`) で動かすか、対応版の PyTorch を待つこと
 
 ## 出力構造
 
@@ -179,7 +212,8 @@ ocr_output/{書籍名}/
 | `ModuleNotFoundError: yomitoku` | `uv tool install yomitoku --python 3.13` |
 | `PDFInfoNotInstalledError` | `brew install poppler` |
 | `LocalEntryNotFoundError` | `dangerouslyDisableSandbox: true` で実行 |
-| MPS device not found | macOS 12.3以降 + ARM64 Python必須 |
+| `The MPS backend is supported on macOS 14.0+` | macOS 26 では PyTorch 2.12 が MPS を未対応扱いする既知問題。CPU 推論にフォールバック |
+| MPS device not found | macOS 14.0以降 + ARM64 Python必須 |
 | Out of Memory | `--lite`使用、並列数を減らす |
 | PDF 0バイト | Dropbox Smart Sync確認、ローカルにダウンロード |
 
@@ -188,5 +222,7 @@ ocr_output/{書籍名}/
 | 環境 | デバイス | 処理時間/ページ |
 |------|----------|----------------|
 | NVIDIA GPU | cuda | 約7秒 |
-| Apple Silicon (M2 Pro) | mps | 約12秒 |
+| Apple Silicon (M2 Pro) | mps | 約12秒 (PyTorch 2.9.1) — macOS 14/15 で実測 |
 | CPU | cpu (--lite) | 約78秒 |
+
+> macOS 26 + PyTorch 2.12 では現状 MPS が使えないため、上記の MPS 行は再現できない。CPU フォールバック (`--lite -d cpu`) で約 78 秒/ページが現実的なライン。

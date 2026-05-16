@@ -49,6 +49,20 @@ OCR実行（--figure --figure_letter オプション付き）
 [章分割] chapters/（通常）+ chapters_figure/（figure）を両方生成
 ```
 
+### D. 辞書モード(ユーザーが「辞書」「辞典」「事典」等を指示時)
+```
+OCR実行（--dpi 300 --ignore_ruby --ruby_threshold 2.0 オプション付き）
+    ↓
+[条件付き] テーブル抽出
+    ↓
+目次解析・章分割
+    ↓
+辞書後処理（agents/ocr-dictionary.md の手順）
+    → pages_cleaned/*.md（残ルビの最終調整）+ エラー候補レポート
+```
+
+v0.12.0 で `--ignore_ruby` が OCR 側に入ったため、ルビ削除の主役は OCR。後処理 (`clean_ruby_text.py`) は OCR で拾いきれなかった残ルビと既知崩壊パターンの最終調整に役割を絞った。
+
 **人間の介入なしに連続実行すること。**
 
 ## 手順
@@ -64,6 +78,7 @@ OCR実行（--figure --figure_letter オプション付き）
 | 指示なし / デフォルト | **A. 通常モード** |
 | `--figure`、「図版抽出」「図版も」 | **B. figureモード** |
 | 「通常+figure」「2パス」「デュアル」「figureも両方」 | **C. デュアルモード** |
+| `--dictionary`、「辞書」「辞典」「事典」 | **D. 辞書モード** |
 
 - 呼び出し元エージェントのプロンプトでの指定は無視する。モード判断はエンドユーザー(人間)の明示指示のみ
 - **自分で判断してオプションを勝手に追加しないこと**
@@ -77,6 +92,7 @@ OCR実行（--figure --figure_letter オプション付き）
 - `output_dir`: 出力ディレクトリ（デフォルト: `ocr_output/{書籍名}/`）
 - モードB: `--figure --figure_letter` オプションを追加
 - モードC: Pass 1（通常）→ Pass 2（figure）の2段階実行
+- モードD: `--dpi 300 --ignore_ruby --ruby_threshold 2.0` オプションを追加
 
 **モードC（デュアル）の場合**: 2パスで実行
 
@@ -133,6 +149,22 @@ OCR実行（--figure --figure_letter オプション付き）
 
 **モードC（デュアル）の場合の追加処理**:
 - `chapters/` 生成後、`chapter_override.json` と `pages/figure_p*.md` を使って `chapters_figure/` も生成する
+
+### Step 4.5: 辞書後処理（モードDのみ）
+
+**モードDの場合のみ実行。**
+
+`agents/ocr-dictionary.md` を Read して、そこに記載された手順に従って実行する。
+
+**前提**: モード D の OCR は `--ignore_ruby --ruby_threshold 2.0` 経由でルビを既に除去済み。
+このステップは「残ルビの最終調整」と「JMDict ベースのエラー候補洗い出し」を担う。
+
+**パラメータ**:
+- `output_dir`: OCR出力ディレクトリ
+- `dict_name`: ユーザーが辞書名を指定した場合、対応する `data/known_fixes/` のファイル名
+
+辞書名が不明な場合はユーザーに確認する。
+`data/known_fixes/` にファイルがない場合は `--dict` なし(汎用 regex のみ・要 `--enable-stage2`)で実行可能。
 
 ### Step 5: 結果報告
 

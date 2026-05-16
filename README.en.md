@@ -8,24 +8,36 @@ PDF → Markdown OCR → Table extraction → TOC analysis → Chapter splitting
 
 ## Features
 
-- **3 modes**: Normal (text-only), Figure (with image extraction), Dual (two-pass for complex layouts)
-- **Parallel batch processing**: Split large PDFs into batches for concurrent OCR
+- **4 modes**: Normal / Figure / Dual (two-pass) / Dictionary (`--ignore_ruby` + residual cleanup)
+- **Parallel batch processing**: Split large PDFs into batches for concurrent OCR. Since v0.12.1's lazy `load_pdf`, single-process whole-book runs are also practical.
 - **Auto table extraction**: Detect table-heavy documents and extract structured JSON
 - **LLM-based TOC analysis**: Parse table of contents and split into chapters
-- **Apple Silicon optimized**: MPS device support (~12s/page on M2 Pro)
+- **Tracks YomiToku v0.13.0**: enhanced detection & handwriting recognition models, `--ignore_ruby`, `--dpi`, `--pages`, etc.
 
 ## Prerequisites
 
 - macOS with Apple Silicon (M1/M2/M3/M4) or Linux with NVIDIA GPU
-- Python 3.10-3.13
+- Python 3.10-3.13, PyTorch 2.6+
+- YomiToku **v0.13.0** or later
+- macOS 14.0+ for MPS. On macOS 26 (Tahoe), PyTorch 2.12 reports `MPS available=False`, so the skill falls back to CPU (`--lite -d cpu`).
 - Claude Code CLI
 
 ```bash
 brew install uv poppler
-uv tool install yomitoku --python 3.13
 
-# For table extraction
-uv tool install 'yomitoku[extract]' --python 3.13
+# Under a SOCKS proxy (Cloudflare WARP, Mullvad, etc.) you must bundle httpx[socks]
+uv tool install 'yomitoku[extract]' --with 'httpx[socks]' --python 3.13
+
+# Already installed with an older version?
+uv tool install 'yomitoku[extract]' --with 'httpx[socks]' --reinstall --python 3.13
+# or simply
+uv tool upgrade yomitoku
+```
+
+First run downloads ~630MB of models from HuggingFace Hub. Prefetch them outside the sandbox once to avoid `PermissionError` later:
+
+```bash
+download_model
 ```
 
 ## Installation
@@ -42,6 +54,7 @@ Once installed, Claude Code will automatically use this skill when you ask it to
 Example prompts:
 - "This PDF book, OCR it and split into chapters"
 - "Digitize this book with figure extraction"
+- "OCR this dictionary and drop the ruby" (Dictionary mode = `--ignore_ruby` + residual cleanup)
 - "OCR this PDF to Markdown"
 
 ## Structure
@@ -83,8 +96,9 @@ YomiToku downloads models (~630MB) from HuggingFace Hub on first run and sends a
 ### Recommended: Pre-cache models + allowedHosts
 
 ```bash
-# 1. Pre-cache models (run once, outside Claude Code)
-yomitoku --help
+# 1. Pre-cache models (run once, outside Claude Code).
+#    v0.12.0+ provides a dedicated command:
+download_model
 
 # 2. Add HuggingFace to sandbox allowedHosts in your settings
 # ~/.claude/settings.local.json:

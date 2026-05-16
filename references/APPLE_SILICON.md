@@ -5,41 +5,64 @@ Mac Mini M2 Pro/M4 ProでYomitokuを最適化する設定。
 ## インストール
 
 ```bash
-# uvでの隔離インストール（推奨）
+# uvでの隔離インストール(推奨)
 brew install uv poppler
-uv tool install yomitoku --python 3.13
+uv tool install 'yomitoku[extract]' --python 3.13
+
+# 既存環境のアップグレード
+uv tool upgrade yomitoku
 
 # 確認
-yomitoku --version
+yomitoku --help | head -5
 ~/.local/share/uv/tools/yomitoku/bin/python -c "from yomitoku import DocumentAnalyzer; print('OK')"
 ```
 
-> **注意**: `poppler`はPDF処理（pdf2image）に必須。
+> **注意**: `poppler` は PDF 処理 (pdf2image) に必須。
+
+## バージョン要件 (v0.13.0 想定)
+
+| 項目 | 要件 |
+|------|------|
+| YomiToku | v0.13.0 以降 |
+| PyTorch | 2.6 以降 (pyproject.toml で `torch>=2.6.0, torchvision>=0.21.0`) |
+| Python | 3.10〜3.13 |
+| macOS | **14.0 以降** (MPS 推論時) |
+
+> macOS 26 (Tahoe) では PyTorch 2.12 が MPS を `is_available()=False` と判定する既知問題がある(`The MPS backend is supported on macOS 14.0+` というエラー文を吐く)。CPU 推論 (`-d cpu --lite`) で動作させるか、PyTorch 側の対応を待つこと。
 
 ## 環境変数設定
 
-処理開始前に設定（Pythonスクリプト先頭または.zshrc/.bashrc）:
+```bash
+# 必須: 未対応操作時のCPUフォールバック
+export PYTORCH_ENABLE_MPS_FALLBACK=1
+```
+
+### Watermark ratio (オプション・上級者向け)
+
+`PYTORCH_MPS_HIGH_WATERMARK_RATIO` を**単独で**設定すると、PyTorch 2.5+ で
+内部の low watermark 計算が破綻し `invalid low watermark ratio` エラーになる
+ことがある。設定する場合は **HIGH/LOW を必ずペアで明示**する:
 
 ```bash
-# 必須：未対応操作時のCPUフォールバック
-export PYTORCH_ENABLE_MPS_FALLBACK=1
+# 32GB環境の例 (両方ペアで明示)
+export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.7
+export PYTORCH_MPS_LOW_WATERMARK_RATIO=0.6
 
-# メモリ設定（32GB環境）
-export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.7  # 上限22GB程度
-export PYTORCH_MPS_LOW_WATERMARK_RATIO=0.6   # GC開始閾値
-
-# 64GB環境
-# export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.9  # 上限約51GB
+# 64GB環境の例
+# export PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.9
 # export PYTORCH_MPS_LOW_WATERMARK_RATIO=0.8
 ```
 
-Pythonスクリプト内で設定:
+`load_pdf` が v0.12.1 で遅延レンダリング化されたあとは、PDF 全ページを一度にメモリへ載せる経路でのOOMは消えた。Watermark 設定が効くのは「OCR 推論 (DocumentAnalyzer) のキャッシュ管理を絞り込みたい」場面に限られる。デフォルトで十分動く環境が多い。
+
+Pythonスクリプト内で設定する場合:
 
 ```python
 import os
-os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
-os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.7'
-os.environ['PYTORCH_MPS_LOW_WATERMARK_RATIO'] = '0.6'
+os.environ.setdefault('PYTORCH_ENABLE_MPS_FALLBACK', '1')
+# 必要なときだけ Watermark を明示する
+# os.environ.setdefault('PYTORCH_MPS_HIGH_WATERMARK_RATIO', '0.7')
+# os.environ.setdefault('PYTORCH_MPS_LOW_WATERMARK_RATIO', '0.6')
 ```
 
 ## MPS確認スクリプト
@@ -84,13 +107,15 @@ def get_mps_memory_info():
 
 | 環境 | 1ページ処理時間 | 備考 |
 |------|----------------|------|
-| CUDA (RTX 3060) | 約7秒 | 最速 |
-| **MPS (M2 Pro)** | **約12秒** | 実測値（PyTorch 2.9.1 + Python 3.13） |
-| CPU (--lite) | 約78秒 | GPUなし環境向け |
+| CUDA (RTX 3060) | 約 7 秒 | 最速 |
+| **MPS (M2 Pro)** | **約 12 秒** | PyTorch 2.9.1 + Python 3.13 + macOS 14/15 の旧実測値 |
+| MPS (macOS 26 + PyTorch 2.12) | 利用不可 | 既知の互換問題 — 下記参照 |
+| CPU (`--lite`) | 約 78 秒 | GPU/MPS が使えない環境向け |
 
-> **実測結果**: M2 Pro環境で`--lite`フラグなしで約12秒/ページを達成。従来の45〜60秒から大幅に改善。PyTorch 2.9.1とPython 3.13の組み合わせで高速動作を確認。
+> **実測結果 (旧)**: M2 Pro 環境で `--lite` フラグなしで約 12 秒/ページを達成。PyTorch 2.9.1 と Python 3.13 の組み合わせで高速動作を確認。
+> **macOS 26 環境**: PyTorch 2.12 では MPS が `available=False` を返すため、`--lite -d cpu` フォールバックとなり 78 秒/ページが現実的なライン。
 
-**MPSの特性**: CUDAに近い速度を実現しつつ、電力効率は80%改善。
+**MPSの特性**: CUDA に近い速度を実現しつつ、電力効率は 80% 改善。
 
 ## 推奨バッチサイズ
 

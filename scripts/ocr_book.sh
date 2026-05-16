@@ -11,12 +11,14 @@
 #   - 画像ディレクトリ: book_images/ (png, jpg, jpeg, tiff)
 #
 # オプション (第3引数以降):
-#   --figure          図版を画像として抽出
-#   --figure_letter   図版内テキストも含める
-#   --dpi <N>         PDF読み込みDPI (デフォルト: 200)
+#   --figure                図版を画像として抽出
+#   --figure_letter         図版内テキストも含める
+#   --dpi <N>               PDF読み込みDPI (デフォルト: 200)
 #   --reading_order <mode>  読み順: auto, right2left, left2right, top2bottom
-#   --pages <spec>    処理するページ指定 (例: 1-40, 41-80)
-#   -v                可視化画像を出力
+#   --pages <spec>          処理するページ指定 (例: 1-40, 41-80)
+#   --ignore_ruby           ルビ(振り仮名)を出力から除外 (v0.12.0+)
+#   --ruby_threshold <N>    ルビ判定の bimodality 閾値 (実装デフォルト 2.0, v0.12.0+)
+#   -v                      可視化画像を出力
 #
 # 並列バッチ実行時の注意:
 #   yomitokuは --pages 指定時、実際のページ番号でファイル名を振る
@@ -35,11 +37,14 @@ if [ -z "$1" ]; then
     echo "input_path: PDF file or directory containing images"
     echo ""
     echo "Options:"
-    echo "  --figure          Extract figures/images"
-    echo "  --figure_letter   Include text within figures"
-    echo "  --dpi <N>         PDF DPI (default: 200)"
+    echo "  --figure                Extract figures/images"
+    echo "  --figure_letter         Include text within figures"
+    echo "  --dpi <N>               PDF DPI (default: 200)"
     echo "  --reading_order <mode>  Reading order: auto, right2left, left2right, top2bottom"
-    echo "  -v                Output visualization images"
+    echo "  --pages <spec>          Pages spec, e.g. 1-40,80-100"
+    echo "  --ignore_ruby           Drop ruby (furigana) from output (v0.12.0+)"
+    echo "  --ruby_threshold <N>    Bimodality threshold for ruby detection (default 2.0)"
+    echo "  -v                      Output visualization images"
     exit 1
 fi
 
@@ -92,6 +97,14 @@ while [ $# -gt 0 ]; do
             ;;
         --pages)
             PAGES_SPEC="$2"
+            shift 2
+            ;;
+        --ignore_ruby)
+            EXTRA_OPTS="$EXTRA_OPTS --ignore_ruby"
+            shift
+            ;;
+        --ruby_threshold)
+            EXTRA_OPTS="$EXTRA_OPTS --ruby_threshold $2"
             shift 2
             ;;
         -v)
