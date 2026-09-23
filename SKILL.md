@@ -2,7 +2,7 @@
 name: yomitoku-ocr
 description: |
   YomiTokuでPDF書籍をOCR処理しMarkdownに変換、目次解析・章分割・テーブル抽出まで
-  一貫実行するパイプラインスキル。3モード（通常/figure/デュアル）対応。
+  一貫実行するパイプラインスキル。4モード（通常/figure/デュアル/辞書）対応。
   Apple Silicon MPS最適化。並列バッチ処理で大規模PDFも高速処理。
   「書籍OCR」「PDF→Markdown」「章分割」「YomiToku」「本のデジタル化」
   「OCRして」「この本をテキスト化」「PDFをMarkdownに」などのキーワードで使用。
@@ -63,7 +63,7 @@ uv tool upgrade yomitoku
 
 ### モデルキャッシュ
 
-v0.12.0 以降は `download_model` で明示的にプリフェッチできる。**初回は sandbox 外で 1 回実行することを推奨**(sandbox の filesystem 制限で `~/.cache/huggingface/hub/` への書き込みが拒否されるため):
+`download_model` でモデルを明示的にプリフェッチする。**初回は sandbox 外で 1 回実行する**(sandbox の filesystem 制限で `~/.cache/huggingface/hub/` への書き込みが拒否されるため):
 
 ```bash
 # ターミナルで直接、または Claude Code 内で `!` プレフィックスで sandbox を抜けて実行
@@ -92,7 +92,7 @@ python3 SKILL_DIR/scripts/check_dependencies.py
 | C. デュアル | テキスト+図版両方必要 | 通常OCR + figureOCR → テーブル抽出 → 章分割(2種) |
 | D. 辞書 | 辞書・事典類 | OCR(`--dpi 300 --ignore_ruby --ruby_threshold 2.0`) → 残ルビ最終調整 → エラー検出 → 章分割 |
 
-辞書モードは v0.12.0 で追加された `--ignore_ruby` を主、`clean_ruby_text.py` の Stage 1 (既知パターン置換) を補助に降格させた構成。詳細は [agents/ocr-dictionary.md](agents/ocr-dictionary.md)。
+辞書モードは `--ignore_ruby` でルビを除去し、残ったルビを `clean_ruby_text.py` の Stage 1 (既知パターン置換) で補正する。詳細は [agents/ocr-dictionary.md](agents/ocr-dictionary.md)。
 
 ## 使い方
 
@@ -122,11 +122,7 @@ YomiToku は初回起動時に HuggingFace Hub からモデル（約630MB）を�
 **パイプライン実行前にモデルキャッシュを準備する。** ユーザーに以下を実行してもらう:
 
 ```bash
-# v0.12.0 以降推奨: 明示的にプリフェッチ
 download_model
-
-# 旧来の方法: yomitoku --help でもダウンロードがトリガーされる
-yomitoku --help
 ```
 
 または Claude Code 内で `!` プレフィックスを使う:
@@ -162,7 +158,7 @@ yomitoku --help
 
 ## メモリ制約
 
-v0.12.1 で `load_pdf` が遅延レンダリング化されてから、PDFを丸ごとメモリに載せる経路のOOMは消えた。残るのは **OCR推論時の GPU/MPS メモリ**:
+`load_pdf` はページを遅延レンダリングするので、メモリの制約になるのは **OCR推論時の GPU/MPS メモリ**:
 
 - 1プロセスあたり OCR 推論で約 5-7GB（M2 Pro 32GB / M4 Pro 64GB 共通の実測値）
 - 並列上限: 通常モード最大5、figureモード最大1(検出器が大きく単体でVRAMを食う)
@@ -211,7 +207,7 @@ ocr_output/{書籍名}/
 |--------|--------|
 | `ModuleNotFoundError: yomitoku` | `uv tool install yomitoku --python 3.13` |
 | `PDFInfoNotInstalledError` | `brew install poppler` |
-| `LocalEntryNotFoundError` | `dangerouslyDisableSandbox: true` で実行 |
+| `LocalEntryNotFoundError` | 「サンドボックス内での動作」の手順 (allowedHosts 追加) を先に試し、解決しない場合のみ `dangerouslyDisableSandbox: true` |
 | `The MPS backend is supported on macOS 14.0+` | macOS 26 では PyTorch 2.12 が MPS を未対応扱いする既知問題。CPU 推論にフォールバック |
 | MPS device not found | macOS 14.0以降 + ARM64 Python必須 |
 | Out of Memory | `--lite`使用、並列数を減らす |
